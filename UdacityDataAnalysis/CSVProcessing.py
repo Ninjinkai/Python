@@ -1,5 +1,7 @@
 import unicodecsv
 from datetime import datetime as dt
+from collections import defaultdict
+import numpy as np
 
 enrollments_filename = 'enrollments.csv'
 engagement_filename = 'daily_engagement.csv'
@@ -35,6 +37,40 @@ def parse_maybe_int(i):
         return None
     else:
         return int(i)
+
+def within_one_week(join_date, engagement_date):
+    time_delta = engagement_date - join_date
+    return time_delta.days < 7 and time_delta.days >= 0
+
+def remove_free_trial_cancels(data):
+    new_data = []
+    for data_point in data:
+        if data_point['account_key'] in paid_students:
+            new_data.append(data_point)
+    return new_data
+
+def get_test_account_keys(data):
+    test_account_keys = set()
+    for data_point in data:
+        if data_point['is_udacity']:
+            test_account_keys.add(data_point['account_key'])
+    return test_account_keys
+
+def remove_test_accounts(data, enrollments_dictionary):
+    test_account_keys = get_test_account_keys(enrollments_dictionary)
+    new_data = []
+    for data_point in data:
+        if data_point['account_key'] not in test_account_keys:
+            new_data.append(data_point)
+    return new_data
+
+def get_students_by_id(ids_to_get, data):
+    records_by_id = []
+    for student_id in ids_to_get:
+        for data_point in data:
+            if data_point['account_key'] == student_id:
+                records_by_id.append(data_point)
+    return records_by_id
 
 for enrollment in enrollments:
     enrollment['cancel_date'] = parse_date(enrollment['cancel_date'])
@@ -73,12 +109,12 @@ for enrolled_student_id in enrolled_student_ids:
     if enrolled_student_id not in engaged_student_ids:
         surprising_ids.add(enrolled_student_id)
 
-print(surprising_ids)
+# print(surprising_ids)
 
-for enrollment in enrollments:
-    if enrollment['account_key'] in surprising_ids:
-        if enrollment['days_to_cancel'] != 0:
-            print(enrollment)
+# for enrollment in enrollments:
+#     if enrollment['account_key'] in surprising_ids:
+#         if enrollment['days_to_cancel'] != 0:
+#             print(enrollment)
 
 paid_students = {}
 for enrollment in enrollments:
@@ -88,4 +124,68 @@ for enrollment in enrollments:
                     or enrollment['join_date'] > paid_students[enrollment['account_key']]:
                 paid_students[enrollment['account_key']] = enrollment['join_date']
 
-print(len(paid_students))
+# print(len(paid_students))
+
+non_udacity_enrollments = remove_test_accounts(enrollments, enrollments)
+non_udacity_engagement = remove_test_accounts(daily_engagement, enrollments)
+non_udacity_submissions = remove_test_accounts(project_submissions, enrollments)
+
+paid_enrollments = remove_free_trial_cancels(non_udacity_enrollments)
+paid_engagement = remove_free_trial_cancels(non_udacity_engagement)
+paid_submissions = remove_free_trial_cancels(non_udacity_submissions)
+
+# print(len(paid_enrollments))
+# print(len(paid_engagement))
+# print(len(paid_submissions))
+
+paid_engagement_in_first_week = []
+
+for engagement_record in paid_engagement:
+    account_key = engagement_record['account_key']
+    join_date = paid_students[account_key]
+    engagement_record_date = engagement_record['utc_date']
+
+    if within_one_week(join_date, engagement_record_date):
+        paid_engagement_in_first_week.append(engagement_record)
+
+# print(len(paid_engagement_in_first_week))
+
+engagement_by_account = defaultdict(list)
+for engagement_record in paid_engagement_in_first_week:
+    account_key = engagement_record['account_key']
+    engagement_by_account[account_key].append(engagement_record)
+
+total_minutes_by_account = {}
+for account_key, engagement_for_student in engagement_by_account.items():
+    total_minutes = 0
+    for engagement_record in engagement_for_student:
+        total_minutes += engagement_record['total_minutes_visited']
+    total_minutes_by_account[account_key] = total_minutes
+
+# average_minutes_all_accounts = 0
+# for account_key, total_minutes in total_minutes_by_account.items():
+#     average_minutes_all_accounts += total_minutes
+# average_minutes_all_accounts /= len(total_minutes_by_account)
+# print(average_minutes_all_accounts)
+
+print(np.mean(list(total_minutes_by_account.values())))
+print(np.max(list(total_minutes_by_account.values())))
+print(np.min(list(total_minutes_by_account.values())))
+print(np.std(list(total_minutes_by_account.values())))
+
+# mins_in_week = 10080
+# surprising_weekly_engagement = []
+# for account_key in total_minutes_by_account.keys():
+#     if total_minutes_by_account[account_key] >= mins_in_week:
+#         surprising_weekly_engagement.append(account_key)
+
+max_total_minutes_account = ['']
+max_total_minutes = 0
+for account_key, minutes_spent in total_minutes_by_account.items():
+    if minutes_spent > max_total_minutes:
+        max_total_minutes_account[0] = account_key
+        max_total_minutes = minutes_spent
+
+print(get_students_by_id(max_total_minutes_account, daily_engagement))
+print(get_students_by_id(max_total_minutes_account, enrollments))
+print(get_students_by_id(max_total_minutes_account, paid_engagement_in_first_week))

@@ -2,6 +2,8 @@ import unicodecsv
 from datetime import datetime as dt
 from collections import defaultdict
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 enrollments_filename = 'enrollments.csv'
 engagement_filename = 'daily_engagement.csv'
@@ -72,6 +74,45 @@ def get_students_by_id(ids_to_get, data):
                 records_by_id.append(data_point)
     return records_by_id
 
+def group_data(data, key_name):
+    grouped_data = defaultdict(list)
+    for data_point in data:
+        key = data_point[key_name]
+        grouped_data[key].append(data_point)
+    return grouped_data
+
+def sum_grouped_items(grouped_data, field_name):
+    summed_data = {}
+    for key, data_points in grouped_data.items():
+        total = 0
+        for data_point in data_points:
+            total += data_point[field_name]
+        summed_data[key] = total
+    return summed_data
+
+def count_grouped_items(grouped_data, field_name):
+    count_data = {}
+    for key, data_points in grouped_data.items():
+        count = 0
+        for data_point in data_points:
+            if data_point[field_name] > 0:
+                count += 1
+        count_data[key] = count
+    return count_data
+
+def describe_data(data):
+    print("Mean: " + str(np.mean(list(data.values()))))
+    print("Std: " + str(np.std(list(data.values()))))
+    print("Min: " + str(np.min(list(data.values()))))
+    print("Max: " + str(np.max(list(data.values()))))
+
+def show_hists(data, x_axis_label, y_axis_label, plot_title):
+    plt.show()
+    plt.xlabel(x_axis_label)
+    plt.ylabel(y_axis_label)
+    plt.title(plot_title)
+    plt.hist(list(data.values()))
+
 for enrollment in enrollments:
     enrollment['cancel_date'] = parse_date(enrollment['cancel_date'])
     enrollment['days_to_cancel'] = parse_maybe_int(enrollment['days_to_cancel'])
@@ -138,6 +179,12 @@ paid_submissions = remove_free_trial_cancels(non_udacity_submissions)
 # print(len(paid_engagement))
 # print(len(paid_submissions))
 
+for engagement_record in paid_engagement:
+    if engagement_record['num_courses_visited'] > 0:
+        engagement_record['has_visited'] = 1
+    else:
+        engagement_record['has_visited'] = 0
+
 paid_engagement_in_first_week = []
 
 for engagement_record in paid_engagement:
@@ -150,17 +197,17 @@ for engagement_record in paid_engagement:
 
 # print(len(paid_engagement_in_first_week))
 
-engagement_by_account = defaultdict(list)
-for engagement_record in paid_engagement_in_first_week:
-    account_key = engagement_record['account_key']
-    engagement_by_account[account_key].append(engagement_record)
+# engagement_by_account = defaultdict(list)
+# for engagement_record in paid_engagement_in_first_week:
+#     account_key = engagement_record['account_key']
+#     engagement_by_account[account_key].append(engagement_record)
 
-total_minutes_by_account = {}
-for account_key, engagement_for_student in engagement_by_account.items():
-    total_minutes = 0
-    for engagement_record in engagement_for_student:
-        total_minutes += engagement_record['total_minutes_visited']
-    total_minutes_by_account[account_key] = total_minutes
+# total_minutes_by_account = {}
+# for account_key, engagement_for_student in engagement_by_account.items():
+#     total_minutes = 0
+#     for engagement_record in engagement_for_student:
+#         total_minutes += engagement_record['total_minutes_visited']
+#     total_minutes_by_account[account_key] = total_minutes
 
 # average_minutes_all_accounts = 0
 # for account_key, total_minutes in total_minutes_by_account.items():
@@ -168,10 +215,10 @@ for account_key, engagement_for_student in engagement_by_account.items():
 # average_minutes_all_accounts /= len(total_minutes_by_account)
 # print(average_minutes_all_accounts)
 
-print(np.mean(list(total_minutes_by_account.values())))
-print(np.max(list(total_minutes_by_account.values())))
-print(np.min(list(total_minutes_by_account.values())))
-print(np.std(list(total_minutes_by_account.values())))
+# print(np.mean(list(total_minutes_by_account.values())))
+# print(np.max(list(total_minutes_by_account.values())))
+# print(np.min(list(total_minutes_by_account.values())))
+# print(np.std(list(total_minutes_by_account.values())))
 
 # mins_in_week = 10080
 # surprising_weekly_engagement = []
@@ -179,13 +226,92 @@ print(np.std(list(total_minutes_by_account.values())))
 #     if total_minutes_by_account[account_key] >= mins_in_week:
 #         surprising_weekly_engagement.append(account_key)
 
-max_total_minutes_account = ['']
-max_total_minutes = 0
-for account_key, minutes_spent in total_minutes_by_account.items():
-    if minutes_spent > max_total_minutes:
-        max_total_minutes_account[0] = account_key
-        max_total_minutes = minutes_spent
+# max_total_minutes_account = ['']
+# max_total_minutes = 0
+# for account_key, minutes_spent in total_minutes_by_account.items():
+#     if minutes_spent > max_total_minutes:
+#         max_total_minutes_account[0] = account_key
+#         max_total_minutes = minutes_spent
+#
+# print(get_students_by_id(max_total_minutes_account, daily_engagement))
+# print(get_students_by_id(max_total_minutes_account, enrollments))
+# print(get_students_by_id(max_total_minutes_account, paid_engagement_in_first_week))
 
-print(get_students_by_id(max_total_minutes_account, daily_engagement))
-print(get_students_by_id(max_total_minutes_account, enrollments))
-print(get_students_by_id(max_total_minutes_account, paid_engagement_in_first_week))
+# total_lessons_by_account = {}
+# for account_key, engagement_for_student in engagement_by_account.items():
+#     total_lessons_completed = 0
+#     for engagement_record in engagement_for_student:
+#         total_lessons_completed += engagement_record['lessons_completed']
+#     total_lessons_by_account[account_key] = total_lessons_completed
+#
+# print(np.mean(list(total_lessons_by_account.values())))
+# print(np.std(list(total_lessons_by_account.values())))
+# print(np.min(list(total_lessons_by_account.values())))
+# print(np.max(list(total_lessons_by_account.values())))
+
+# engagement_by_account = group_data(paid_engagement_in_first_week, 'account_key')
+# summed_lessons = sum_grouped_items(engagement_by_account, 'lessons_completed')
+# summed_time = sum_grouped_items(engagement_by_account, 'total_minutes_visited')
+# describe_data(summed_lessons)
+# describe_data(summed_time)
+
+# engagement_days_by_account = group_data(paid_engagement_in_first_week, 'account_key')
+# count_of_lessons = count_grouped_items(engagement_days_by_account, 'num_courses_visited')
+# describe_data(count_of_lessons)
+#
+# engagement_days_by_account = group_data(paid_engagement_in_first_week, 'account_key')
+# count_of_lessons = sum_grouped_items(engagement_days_by_account, 'has_visited')
+# describe_data(count_of_lessons)
+
+subway_project_lesson_keys = ['746169184', '3176718735']
+passing_engagement = []
+non_passing_engagement = []
+passed_subway_project_accounts = set()
+
+for submission in paid_submissions:
+    project = submission['lesson_key']
+    rating = submission['assigned_rating']
+    if project in subway_project_lesson_keys and (rating == 'PASSED' or rating == 'DISTINCTION'):
+        passed_subway_project_accounts.add(submission['account_key'])
+
+for engagement_record in paid_engagement_in_first_week:
+    if engagement_record['account_key'] in passed_subway_project_accounts:
+        passing_engagement.append(engagement_record)
+    else:
+        non_passing_engagement.append(engagement_record)
+
+# print(len(passing_engagement))
+# print(len(non_passing_engagement))
+
+passing_engagement_by_account = group_data(passing_engagement, 'account_key')
+non_passing_engagement_by_account = group_data(non_passing_engagement, 'account_key')
+
+minutes_passing = sum_grouped_items(passing_engagement_by_account, 'total_minutes_visited')
+minutes_non_passing = sum_grouped_items(non_passing_engagement_by_account, 'total_minutes_visited')
+
+# print("Passing by minutes:")
+# describe_data(minutes_passing)
+# print("Non-passing by minutes:")
+# describe_data(minutes_non_passing)
+# show_hists(minutes_passing)
+# show_hists(minutes_non_passing)
+
+lessons_passing = sum_grouped_items(passing_engagement_by_account, 'lessons_completed')
+lessons_non_passing = sum_grouped_items(non_passing_engagement_by_account, 'lessons_completed')
+
+# print("Passing by lessons:")
+# describe_data(lessons_passing)
+# print("Non-passing by lessons:")
+# describe_data(lessons_non_passing)
+# show_hists(lessons_passing, "Lessons", "Number of Students", "Passed")
+# show_hists(lessons_non_passing, "Lessons", "Number of Students", "Not Passed")
+
+days_passing = sum_grouped_items(passing_engagement_by_account, 'has_visited')
+days_non_passing = sum_grouped_items(non_passing_engagement_by_account, 'has_visited')
+
+# print("Passing by days:")
+# describe_data(days_passing)
+# print("Non-passing by days:")
+# describe_data(days_non_passing)
+# show_hists(days_passing)
+# show_hists(days_non_passing)
